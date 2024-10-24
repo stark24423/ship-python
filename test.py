@@ -3,7 +3,9 @@ import numpy as np
 import heapq
 import sys
 
-# 定義常量
+# 可調整的參數
+
+# 網格和顯示參數
 GRID_SIZE = 100  # 網格尺寸
 CELL_SIZE = 6    # 每個網格的像素大小
 SCREEN_SIZE = GRID_SIZE * CELL_SIZE  # 窗口大小
@@ -17,6 +19,30 @@ BLUE = (100, 100, 255)
 GREEN = (100, 255, 100)
 YELLOW = (255, 255, 0)  # 路徑顏色
 LIGHT_GRAY = (200, 200, 200)  # 圓周顏色
+
+# 船隻初始位置和速度
+FLEET_LEADER_START_X = 10
+FLEET_LEADER_START_Y = 10
+FLEET_LEADER_SPEED = 10
+
+ENEMY_SHIP_START_X = 50
+ENEMY_SHIP_START_Y = 50
+ENEMY_SHIP_SPEED = 5
+
+# 艦隊隊形偏移
+FORMATION_OFFSETS = [
+    (0, 0),         # 領隊
+    (-2, -2),       # 左側第一艘船
+    (-2, 2),        # 右側第一艘船
+    (-4, -4),       # 左側第二艘船
+    (-4, 4),        # 右側第二艘船
+]
+
+# 距離閾值
+FORMATION_CHANGE_DISTANCE = 30  # 距離小於此值時改變隊形
+
+# 包圍敵方船隻時的圓周半徑
+SURROUND_RADIUS = 15  # 圓的半徑
 
 # 初始化 pygame
 pygame.init()
@@ -92,6 +118,10 @@ def astar(start, goal, grid):
     def heuristic(a, b):
         # 使用歐幾里得距離作為啟發式函數
         return np.hypot(a[0] - b[0], a[1] - b[1])
+        # 如果起點和終點相同，直接回傳起點
+
+    if start == goal:
+        return [start]
 
     open_set = []
     heapq.heappush(open_set, (0, start))
@@ -139,31 +169,26 @@ def get_neighbors(pos, grid):
 
 # 初始化船隻
 # 創建艦隊領隊（中心船隻）
-fleet_leader = Ship(10, 10, BLUE, 15)
+fleet_leader = Ship(FLEET_LEADER_START_X, FLEET_LEADER_START_Y, BLUE, FLEET_LEADER_SPEED)
 
 # 定義艦隊的初始隊形（局部座標系下）
 # 這裡定義一個 V 字形的固定隊形
-formation_offsets = [
-    (0, 0),         # 領隊
-    (-2, -2),       # 左側第一艘船
-    (-2, 2),        # 右側第一艘船
-    (-4, -4),       # 左側第二艘船
-    (-4, 4),        # 右側第二艘船
-]
+formation_offsets = FORMATION_OFFSETS
 
 # 創建艦隊
 fleet = []
 for offset in formation_offsets:
-    ship = Ship(fleet_leader.x, fleet_leader.y, BLUE, 15)
+    ship = Ship(fleet_leader.x, fleet_leader.y, BLUE, FLEET_LEADER_SPEED)
     ship.local_offset = np.array(offset)  # 局部偏移，用於計算隊形位置
     fleet.append(ship)
 
 # 敵方船隻
-enemy_ship = Ship(50, 50, RED, 10)  # 敵方船隻速度
+enemy_ship = Ship(ENEMY_SHIP_START_X, ENEMY_SHIP_START_Y, RED, ENEMY_SHIP_SPEED)  # 敵方船隻速度
 
 # 主循環
 running = True
 formation_flag = True
+create_surround_position_flag = False
 while running:
     dt = clock.tick(FPS) / 1000.0  # 轉換為秒
     screen.fill(WHITE)
@@ -194,10 +219,10 @@ while running:
 
     # 計算領隊與敵方船隻的距離
     distance_to_enemy = np.hypot(fleet_leader.x - enemy_ship.x, fleet_leader.y - enemy_ship.y)
-    if distance_to_enemy< 30:
+    if distance_to_enemy < FORMATION_CHANGE_DISTANCE:
         formation_flag = False
 
-    if distance_to_enemy > 30 and formation_flag is True:
+    if distance_to_enemy > FORMATION_CHANGE_DISTANCE and formation_flag is True:
         # 與之前相同的剛性隊形移動
         # 每隔一定時間重新計算路徑
         if not fleet_leader.path or (round(fleet_leader.path[-1][0]) != round(enemy_ship.x) or round(fleet_leader.path[-1][1]) != round(enemy_ship.y)):
@@ -244,15 +269,17 @@ while running:
             # 清除個人路徑
             ship.path = []
     else:
-        # 靠近敵方船隻，改變隊形，為每艘船隻計算個別路徑
-        num_ships = len(fleet)
-        angle_between_ships = 2 * np.pi / num_ships
-        radius = 15  # 圓的半徑
+        if create_surround_position_flag is False:
+            # 靠近敵方船隻，改變隊形，為每艘船隻計算個別路徑
+            num_ships = len(fleet)
+            angle_between_ships = 2 * np.pi / num_ships
+            radius = SURROUND_RADIUS  # 圓的半徑
 
-        # 計算從領隊到敵方船隻的連線方向角度
-        dir_x = enemy_ship.x - fleet_leader.x
-        dir_y = enemy_ship.y - fleet_leader.y
-        base_angle = np.arctan2(dir_y, dir_x)
+            # 計算從領隊到敵方船隻的連線方向角度
+            dir_x = enemy_ship.x - fleet_leader.x
+            dir_y = enemy_ship.y - fleet_leader.y
+            base_angle = np.arctan2(dir_y, dir_x)
+            create_surround_position_flag = True
 
         for i, ship in enumerate(fleet):
             # 計算每艘船在圓周上的目標角度
@@ -265,17 +292,20 @@ while running:
             ship.target_y = target_y
             #Todo 在這裡加入避碰 以及 task assignment
             # 如果需要重新計算路徑（第一次或目標位置改變）
+
             if not ship.path or (round(ship.path[-1][0]) != round(target_x) or round(ship.path[-1][1]) != round(target_y)):
                 start = (round(ship.x), round(ship.y))
                 goal = (round(target_x), round(target_y))
+                if start == goal:
+                    continue
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
                 ship.path = astar(start, goal, grid)
 
             # 沿著個人路徑移動
             ship.move_along_path(dt)
 
-    # 繪製領隊的路徑（僅在距離大於30時）
-    if distance_to_enemy and formation_flag is True :
+    # 繪製領隊的路徑（僅在距離大於 FORMATION_CHANGE_DISTANCE 時）
+    if distance_to_enemy > FORMATION_CHANGE_DISTANCE and formation_flag is True:
         fleet_leader.draw_path()
 
     # 繪製艦隊中的所有船隻和他們的路徑
@@ -288,17 +318,17 @@ while running:
     # 繪製敵方船隻
     enemy_ship.draw()
 
-    # 繪製半徑為 30 格和 15 格的圓周
+    # 繪製半徑為 FORMATION_CHANGE_DISTANCE 格和 SURROUND_RADIUS 格的圓周
     # 需要將圓的半徑從格子單位轉換為像素單位
-    radius_30 = 30 * CELL_SIZE
-    radius_15 = 15 * CELL_SIZE
+    radius_large = FORMATION_CHANGE_DISTANCE * CELL_SIZE
+    radius_small = SURROUND_RADIUS * CELL_SIZE
     enemy_pos_px = (int(enemy_ship.x * CELL_SIZE), int(enemy_ship.y * CELL_SIZE))
 
-    # 繪製半徑為 30 格的圓周（淡灰色）
-    pygame.draw.circle(screen, LIGHT_GRAY, enemy_pos_px, int(radius_30), 1)
+    # 繪製半徑為 FORMATION_CHANGE_DISTANCE 格的圓周（淡灰色）
+    pygame.draw.circle(screen, LIGHT_GRAY, enemy_pos_px, int(radius_large), 1)
 
-    # 繪製半徑為 15 格的圓周（淡灰色）
-    pygame.draw.circle(screen, LIGHT_GRAY, enemy_pos_px, int(radius_15), 1)
+    # 繪製半徑為 SURROUND_RADIUS 格的圓周（淡灰色）
+    pygame.draw.circle(screen, LIGHT_GRAY, enemy_pos_px, int(radius_small), 1)
 
     # 刷新顯示
     pygame.display.flip()
