@@ -139,30 +139,31 @@ def get_neighbors(pos, grid):
 
 # 初始化船隻
 # 創建艦隊領隊（中心船隻）
-fleet_leader = Ship(np.random.randint(0, GRID_SIZE), np.random.randint(0, GRID_SIZE), BLUE, 3)
+fleet_leader = Ship(10, 10, BLUE, 15)
 
 # 定義艦隊的初始隊形（局部座標系下）
 # 這裡定義一個 V 字形的固定隊形
 formation_offsets = [
     (0, 0),         # 領隊
-    (-2, -1),       # 左側第一艘船
-    (-2, 1),        # 右側第一艘船
-    (-4, -2),       # 左側第二艘船
-    (-4, 2),        # 右側第二艘船
+    (-2, -2),       # 左側第一艘船
+    (-2, 2),        # 右側第一艘船
+    (-4, -4),       # 左側第二艘船
+    (-4, 4),        # 右側第二艘船
 ]
 
 # 創建艦隊
 fleet = []
 for offset in formation_offsets:
-    ship = Ship(fleet_leader.x, fleet_leader.y, BLUE, 3)
+    ship = Ship(fleet_leader.x, fleet_leader.y, BLUE, 15)
     ship.local_offset = np.array(offset)  # 局部偏移，用於計算隊形位置
     fleet.append(ship)
 
 # 敵方船隻
-enemy_ship = Ship(np.random.randint(0, GRID_SIZE), np.random.randint(0, GRID_SIZE), RED, 2)  # 敵方船隻速度
+enemy_ship = Ship(50, 50, RED, 10)  # 敵方船隻速度
 
 # 主循環
 running = True
+formation_flag = True
 while running:
     dt = clock.tick(FPS) / 1000.0  # 轉換為秒
     screen.fill(WHITE)
@@ -193,13 +194,15 @@ while running:
 
     # 計算領隊與敵方船隻的距離
     distance_to_enemy = np.hypot(fleet_leader.x - enemy_ship.x, fleet_leader.y - enemy_ship.y)
+    if distance_to_enemy< 30:
+        formation_flag = False
 
-    if distance_to_enemy > 30:
+    if distance_to_enemy > 30 and formation_flag is True:
         # 與之前相同的剛性隊形移動
         # 每隔一定時間重新計算路徑
-        if not fleet_leader.path or (int(fleet_leader.path[-1][0]) != int(enemy_ship.x) or int(fleet_leader.path[-1][1]) != int(enemy_ship.y)):
-            start = (int(fleet_leader.x), int(fleet_leader.y))
-            goal = (int(enemy_ship.x), int(enemy_ship.y))
+        if not fleet_leader.path or (round(fleet_leader.path[-1][0]) != round(enemy_ship.x) or round(fleet_leader.path[-1][1]) != round(enemy_ship.y)):
+            start = (round(fleet_leader.x), round(fleet_leader.y))
+            goal = (round(enemy_ship.x), round(enemy_ship.y))
             grid = np.zeros((GRID_SIZE, GRID_SIZE))
             fleet_leader.path = astar(start, goal, grid)
 
@@ -260,11 +263,11 @@ while running:
             # 更新目標位置
             ship.target_x = target_x
             ship.target_y = target_y
-
+            #Todo 在這裡加入避碰 以及 task assignment
             # 如果需要重新計算路徑（第一次或目標位置改變）
-            if not ship.path or (int(ship.path[-1][0]) != int(target_x) or int(ship.path[-1][1]) != int(target_y)):
-                start = (int(ship.x), int(ship.y))
-                goal = (int(target_x), int(target_y))
+            if not ship.path or (round(ship.path[-1][0]) != round(target_x) or round(ship.path[-1][1]) != round(target_y)):
+                start = (round(ship.x), round(ship.y))
+                goal = (round(target_x), round(target_y))
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
                 ship.path = astar(start, goal, grid)
 
@@ -272,14 +275,14 @@ while running:
             ship.move_along_path(dt)
 
     # 繪製領隊的路徑（僅在距離大於30時）
-    if distance_to_enemy > 30:
+    if distance_to_enemy and formation_flag is True :
         fleet_leader.draw_path()
 
     # 繪製艦隊中的所有船隻和他們的路徑
     for ship in fleet:
         ship.draw()
         # 繪製個人路徑（靠近敵方船隻時）
-        if distance_to_enemy <= 30:
+        if formation_flag is False:
             ship.draw_path()
 
     # 繪製敵方船隻
