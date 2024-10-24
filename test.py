@@ -2,6 +2,7 @@ import pygame
 import numpy as np
 import heapq
 import sys
+import Task_asignment
 
 # 可調整的參數
 
@@ -280,26 +281,39 @@ while running:
             dir_y = enemy_ship.y - fleet_leader.y
             base_angle = np.arctan2(dir_y, dir_x)
             create_surround_position_flag = True
-
+        list_ship_pos = np.zeros((len(fleet),2))
+        list_target_pos = np.zeros((len(fleet), 2))
         for i, ship in enumerate(fleet):
             # 計算每艘船在圓周上的目標角度
             theta = base_angle + i * angle_between_ships
             # 計算目標位置
             target_x = enemy_ship.x + radius * np.cos(theta)
             target_y = enemy_ship.y + radius * np.sin(theta)
-            # 更新目標位置
-            ship.target_x = target_x
-            ship.target_y = target_y
-            #Todo 在這裡加入避碰 以及 task assignment
-            # 如果需要重新計算路徑（第一次或目標位置改變）
+            list_ship_pos[i] = [round(ship.x), round(ship.y)]
+            list_target_pos[i] = [target_x,target_y]
+        #Todo 在這裡加入避碰 以及 task assignment
+        assignments, max_cost = Task_asignment.assign_tasks(list_ship_pos,list_target_pos)
+        for i in assignments:
+            fleet[i].target_x = list_target_pos[assignments[i]][0]
+            fleet[i].target_y = list_target_pos[assignments[i]][1]
+            print(i, fleet[i].target_x,fleet[i].target_y)
 
-            if not ship.path or (round(ship.path[-1][0]) != round(target_x) or round(ship.path[-1][1]) != round(target_y)):
+
+
+
+            # 如果需要重新計算路徑（第一次或目標位置改變）
+        for i, ship in enumerate(fleet):
+            if not ship.path or (
+                    round(ship.path[-1][0]) != round(ship.target_x) or round(ship.path[-1][1]) != round(ship.target_y)):
                 start = (round(ship.x), round(ship.y))
-                goal = (round(target_x), round(target_y))
+                goal = (round(ship.target_x), round(ship.target_y))
                 if start == goal:
                     continue
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
                 ship.path = astar(start, goal, grid)
+
+            # 沿着个人路径移动
+            ship.move_along_path(dt)
 
             # 沿著個人路徑移動
             ship.move_along_path(dt)
