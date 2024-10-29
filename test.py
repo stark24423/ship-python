@@ -24,7 +24,7 @@ LIGHT_GRAY = (200, 200, 200)  # 圓周顏色
 # 船隻初始位置和速度
 FLEET_LEADER_START_X = 10
 FLEET_LEADER_START_Y = 10
-FLEET_LEADER_SPEED = 5
+FLEET_LEADER_SPEED = 10
 
 ENEMY_SHIP_START_X = 50
 ENEMY_SHIP_START_Y = 50
@@ -163,10 +163,22 @@ def get_neighbors(pos, grid):
     for dx, dy in directions:
         nx, ny = x + dx, y + dy
         if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
+            if grid[int(nx), int(ny)] == 1:
+                continue  # 避開障礙物
             # 計算移動成本，直行為1，對角線為sqrt(2)
             move_cost = np.hypot(dx, dy)
             neighbors.append(((nx, ny), move_cost))
     return neighbors
+
+def set_obstacle(grid, x, y):
+    # 設置障礙物
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1),  # 上下左右
+                  (-1, -1), (-1, 1), (1, -1), (1, 1)]  # 對角線
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
+            grid[int(nx), int(ny)] = 1
+
 
 # 初始化船隻
 # 創建艦隊領隊（中心船隻）
@@ -310,6 +322,14 @@ while running:
                 if start == goal:
                     continue
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
+                # 將其他船隻的位置標記為障礙物
+                for other_ship in fleet:
+                    if other_ship != ship:
+                        set_obstacle(grid, int(round(other_ship.x)), int(round(other_ship.y)))  # 標記為障礙物
+                        if len(other_ship.path) > 1:
+                            set_obstacle(grid, int(round(other_ship.path[1][0])), int(round(other_ship.path[1][1])))
+                set_obstacle(grid, int(round(enemy_ship.x)), int(round(enemy_ship.y)))  # 標記敵方船隻為障礙物
+
                 ship.path = astar(start, goal, grid)
 
 
