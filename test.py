@@ -24,7 +24,7 @@ LIGHT_GRAY = (200, 200, 200)  # 圓周顏色
 # 船隻初始位置和速度
 FLEET_LEADER_START_X = 10
 FLEET_LEADER_START_Y = 10
-FLEET_LEADER_SPEED = 10
+FLEET_LEADER_SPEED = 5
 
 ENEMY_SHIP_START_X = 50
 ENEMY_SHIP_START_Y = 50
@@ -312,8 +312,7 @@ while running:
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
                 ship.path = astar(start, goal, grid)
 
-            # 沿着个人路径移动
-            ship.move_along_path(dt)
+
 
             # 沿著個人路徑移動
             ship.move_along_path(dt)
