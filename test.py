@@ -3,6 +3,7 @@ import numpy as np
 import heapq
 import sys
 import Task_asignment
+import find_path
 
 # 可調整的參數
 
@@ -308,7 +309,7 @@ while running:
         for i in assignments:
             fleet[i].target_x = list_target_pos[assignments[i]][0]
             fleet[i].target_y = list_target_pos[assignments[i]][1]
-            print(i, fleet[i].target_x,fleet[i].target_y)
+            #print(i, fleet[i].target_x,fleet[i].target_y)
 
 
 
@@ -322,15 +323,16 @@ while running:
                 if start == goal:
                     continue
                 grid = np.zeros((GRID_SIZE, GRID_SIZE))
-                # 將其他船隻的位置標記為障礙物
+
+                other_ship_path = []
                 for other_ship in fleet:
                     if other_ship != ship:
-                        set_obstacle(grid, int(round(other_ship.x)), int(round(other_ship.y)))  # 標記為障礙物
-                        if len(other_ship.path) > 1:
-                            set_obstacle(grid, int(round(other_ship.path[1][0])), int(round(other_ship.path[1][1])))
-                set_obstacle(grid, int(round(enemy_ship.x)), int(round(enemy_ship.y)))  # 標記敵方船隻為障礙物
+                        other_ship_path.append(other_ship.path)
+                #print(other_ship_path)
 
-                ship.path = astar(start, goal, grid)
+                ship.path, AT, path_steps = find_path.find_path(start, goal, grid, other_ship_path)
+                if ship.path[0] == start:
+                    print("sucess")
 
 
 

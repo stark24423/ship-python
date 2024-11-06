@@ -1,8 +1,5 @@
 import random
-
 from model.Cell import Cell
-
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -132,10 +129,6 @@ if __name__ == '__main__':
     # 顯示地圖 幫我對齊
     #plot_AT_map_with_obstacles(map)
 
-
-
-
-
     #陣列初始化
     tl, ll0, ll1, ll2 = [], [], [], []
     ll0_head, ll1_head, ll2_head = 0, 1, 2
@@ -147,11 +140,6 @@ if __name__ == '__main__':
 
     #將 TL 中的 cell 分配到 LL0, LL1, LL2
     while end_position.vis != 1 :
-        # print("----------------------------------------------------------------")
-        # for i in range(len(map)):
-        #     for j in range(len(map[0])):
-        #         print(f'{map[i][j].AT:.2f}', end=' ')
-        #     print()
         if len(tl) == 0:
             plot_AT_map_with_values(map)
             print("No path found")
@@ -187,9 +175,6 @@ if __name__ == '__main__':
             ll2_head += 3
             index = 0
 
-    #顯示地圖
-    #plot_AT_map_with_values(map)
-
     #回朔路線
     path = []
     cell = end_position
@@ -211,14 +196,7 @@ if __name__ == '__main__':
     path.append(start_position)
     path.reverse()
 
-    # for i in range(len(map)):
-    #     for j in range(len(map[0])):
-    #         print(f'{map[i][j].AT:.2f}', end=' ')
-    #     print()
-
     print("Time:", time.time()-start)
-
-
 
     # 使用 matplotlib 顯示路線
     plot_map_with_obstacles_and_path(map, path)
