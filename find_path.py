@@ -1,31 +1,48 @@
 import heapq
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.widgets import Slider
+import math
 
-
+# 定義移動方向及其對應的消耗
 directions = [
-    (0, 1, 1),  # 向右
-    (1, 0, 1),  # 向下
-    (0, -1, 1),  # 向左
-    (-1, 0, 1),  # 向上
-    (1, 1, 1.4),  # 右下（對角線）
-    (1, -1, 1.4),  # 左下（對角線）
-    (-1, 1, 1.4),  # 右上（對角線）
-    (-1, -1, 1.4)  # 左上（對角線）
+    (0, 1, 1),  # 右
+    (1, 0, 1),  # 下
+    (0, -1, 1),  # 左
+    (-1, 0, 1),  # 上
+    (1, 1, 1.4),  # 右下
+    (1, -1, 1.4),  # 左下
+    (-1, 1, 1.4),  # 右上
+    (-1, -1, 1.4)  # 左上
 ]
 
-def cuculate_AT(start , end):
+
+def cuculate_AT(start, end):
     return math.sqrt((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2)
 
-def update_obstacle(max_AT, grid, other_ship_path):
-    for ship_path in other_ship_path:
-        start = ship_path[0]
-        for pos in ship_path:
 
-            if ( max_AT+1 )>cuculate_AT(start,pos) > max_AT:
-                grid[pos[0]][pos[1]] = 1
-                break
-            else:
-                grid[pos[0]][pos[1]] = 0
+def set_range_obstale(pos, grid, collision_avoidance_range):
+    for i in range(-collision_avoidance_range, collision_avoidance_range):
+        for j in range(-collision_avoidance_range, collision_avoidance_range):
+            grid[pos[0] + i][pos[1] + j] = 1
+
+
+def clear_range_obstale(pos, grid, collision_avoidance_range):
+    for i in range(-collision_avoidance_range, collision_avoidance_range):
+        for j in range(-collision_avoidance_range, collision_avoidance_range):
+            grid[pos[0] + i][pos[1] + j] = 0
+
+
+def update_obstacle(max_AT, dynamic_grid, other_ship_path):
+    for ship_path in other_ship_path:
+        if ship_path:
+            start_pos = ship_path[0]
+            for pos in ship_path:
+                ship_at = cuculate_AT(start_pos, pos)
+                if max_AT< ship_at<max_AT+1:
+                    set_range_obstale(pos, dynamic_grid, 1)
+                if max_AT-1< ship_at<max_AT:
+                    clear_range_obstale(pos, dynamic_grid, 1)
 
 
 
@@ -34,98 +51,126 @@ def find_path(start, goal, grid, other_ship_path):
         return [start]
     temp = []
     heapq.heappush(temp, (0, start))
-
-    # 建立 AT 表
     AT = [[float('inf')] * len(grid[0]) for _ in range(len(grid))]
     AT[start[0]][start[1]] = 0
-
-    # 建立訪問表
     visited = [[False] * len(grid[0]) for _ in range(len(grid))]
     visited[start[0]][start[1]] = True
-
-    # 建立 came_from 表
     came_from = [[None] * len(grid[0]) for _ in range(len(grid))]
-    max_at = 0
-    # 迴圈開始
-    while temp:
+    dynamic_grid = [row[:] for row in grid]
+    path_steps = []
 
-        #step 1 pop temp
+    while temp:
         _, current = heapq.heappop(temp)
         if current == goal:
             break
-        #step 2 update map
+        max_at = AT[current[0]][current[1]]
+        update_obstacle(max_at, dynamic_grid, other_ship_path)
         for i in range(8):
             x = current[0] + directions[i][0]
             y = current[1] + directions[i][1]
             if 0 <= x < len(grid) and 0 <= y < len(grid[0]):
-                update_obstacle(max_at, grid, other_ship_path)
-                if grid[x][y] == 0 and not visited[x][y]:
+                if dynamic_grid[x][y] == 0 and not visited[x][y]:
                     new_AT = AT[current[0]][current[1]] + directions[i][2]
                     if AT[x][y] > new_AT:
                         AT[x][y] = new_AT
                         heapq.heappush(temp, (new_AT, (x, y)))
                         visited[x][y] = True
                         came_from[x][y] = current
-    # 回溯路徑
+                        path_steps.append((x, y))
+
     path = []
     current = goal
     while current != start:
         path.append(current)
         current = came_from[current[0]][current[1]]
+        if current is None:
+            return None, AT, path_steps
     path.append(start)
     path.reverse()
-    print(AT)
-    return path, AT
+    return path, AT, path_steps
 
 
-
-
-
-# 測試範例
+# 動畫顯示路徑
 def main():
     grid = [
         [0, 0, 0, 0, 0, 0],
-        [0, 1, 1, 1, 1, 0],
-        [0, 1, 0, 0, 1, 0],
-        [0, 1, 0, 0, 1, 0],
-        [0, 1, 1, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0],
     ]
     start = (0, 0)
-    goal = (3, 3)
+    goal = (5, 5)
+    other_ship_path = [[(5, 5), (4, 4), (3, 3), (2, 2), (1, 1), (0, 0)]]
+    path, AT, path_steps = find_path(start, goal, grid, other_ship_path)
 
-    path, AT = find_path(start, goal, grid)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.set_xlim(-0.5, len(grid[0]) - 0.5)
+    ax.set_ylim(-0.5, len(grid) - 0.5)
+    ax.set_xticks(range(len(grid[0])))
+    ax.set_yticks(range(len(grid)))
+    ax.grid(True)
+    ax.set_aspect('equal', adjustable='box')
+    plt.gca().invert_yaxis()
 
-    if path:
-        print("找到路徑：", path)
-        # 圖形化顯示
-        plt.figure(figsize=(6, 6))
-        ax = plt.gca()
+    # 靜態障礙物繪製
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            if grid[i][j] == 1:
+                ax.plot(j, i, 'ks')  # 障礙物
+
+    # 起點和終點標記
+    ax.plot(start[1], start[0], 'go', markersize=10, label='起點')
+    ax.plot(goal[1], goal[0], 'bo', markersize=10, label='終點')
+
+    # 添加進度條
+    ax_slider = plt.axes([0.2, 0.01, 0.6, 0.03], facecolor="lightgrey")
+    slider = Slider(ax_slider, '進度', 0, max(len(path), len(other_ship_path[0])) - 1, valinit=0, valstep=1)
+
+    # 動畫更新函數
+    def update(num):
+        ax.clear()
+        ax.set_xlim(-0.5, len(grid[0]) - 0.5)
+        ax.set_ylim(-0.5, len(grid) - 0.5)
+        ax.grid(True)
+        plt.gca().invert_yaxis()
+
         for i in range(len(grid)):
             for j in range(len(grid[0])):
-                x, y = j, len(grid) - 1 - i
                 if grid[i][j] == 1:
-                    plt.plot(x, y, 'ks')  # 障礙物，用黑色方塊表示
-                else:
-                    # 在可通行的格子上顯示 AT 值
-                    if AT[i][j] != float('inf'):
-                        plt.text(x, y, int(AT[i][j]), ha='center', va='center', color='blue')
-                    else:
-                        plt.text(x, y, '∞', ha='center', va='center', color='gray')
+                    ax.plot(j, i, 'ks')  # 障礙物
 
-        x_coords = [p[1] for p in path]
-        y_coords = [len(grid) - 1 - p[0] for p in path]
-        plt.plot(x_coords, y_coords, 'ro-')  # 路徑，用紅色線條表示
-        plt.plot(start[1], len(grid) - 1 - start[0], 'go')  # 起點，用綠色圓點表示
-        plt.plot(goal[1], len(grid) - 1 - goal[0], 'bo')  # 終點，用藍色圓點表示
-        plt.title('洪泛路徑規劃結果（包含 AT 值）')
-        plt.grid(True)
-        plt.xlim(-1, len(grid[0]))
-        plt.ylim(-1, len(grid))
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.show()
-    else:
-        print("未找到路徑")
+        # 當前步驟的動態障礙物
+        if num < len(other_ship_path[0]):
+            ship_pos = other_ship_path[0][num]
+            ax.plot(ship_pos[1], ship_pos[0], 'bx', markersize=8, label='飛機行走路徑')
+
+        # 起點和終點標記
+        ax.plot(start[1], start[0], 'go', markersize=10, label='起點')
+        ax.plot(goal[1], goal[0], 'bo', markersize=10, label='終點')
+
+        # 繪製路徑規劃的路徑
+        for i in range(num + 1):
+            if i < len(path):
+                step = path[i]
+                ax.plot(step[1], step[0], 'ro', markersize=5, label='規劃路徑' if i == 0 else "")
+
+        # 添加圖例
+        if num == 0:
+            ax.legend(loc="upper right")
+
+    # 初始化動畫
+    ani = animation.FuncAnimation(fig, update, frames=max(len(path), len(other_ship_path[0])), interval=500,
+                                  repeat=False)
+
+    # 更新動畫隨滑桿
+    def on_slider_change(val):
+        update(int(slider.val))
+
+    slider.on_changed(on_slider_change)
+    plt.show()
+
 
 if __name__ == "__main__":
     main()
